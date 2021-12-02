@@ -7,12 +7,165 @@
 
   <title>Zoints Treasury UI</title>
   <meta name="author" content="Who Soup">
-
+  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+  <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.min.js"></script>
+  <script src="https://unpkg.com/bn.js@5.2.0/lib/bn.js"></script>
+  <script src="https://bundle.run/buffer@6.0.3"></script>
+  <script src="treasury.umd.js"></script>
 </head>
 
 <body>
-    Hello World!
+<div id="app">
+    <div id="login">
+        <button onclick="connectPhantom()">Connect with Phantom Extension</button>&nbsp;
+        Network: <select id="network">
+            <option value="mainnet-beta">MainNet</option>
+            <option value="devnet" selected>DevNet</option>
+        </select>
+    </div>
+    <div id="lookup">
+        <input type="text" id="treasury" size="44" value="7SMpwGCHxt9zjz1WrmKMFBDar5XsDnTdjwgFRMbhyANK" /><button onclick="lookupTreasury()">Load treasury</button>
+        <div id="treasuryInfo"></div>
+    </div>
+</div>
 
+<script type="text/javascript">
+
+let cluster;
+let connection;
+let programId;
+let treasury;
+let vestedId;
+let mint;
+
+globalThis.Buffer = buffer.Buffer;
+
+async function withdraw() {
+    const tx = new solanaWeb3.Transaction().add(
+        await window.zointsTreasury.TreasuryInstruction.WithdrawVested(
+            programId,
+            window.solana.publicKey,
+            vestedId,
+            window.solana.publicKey,
+            mint
+    ));
+
+    const recent = await connection.getRecentBlockhash();
+    tx.recentBlockhash = recent.blockhash;
+    tx.feePayer = window.solana.publicKey;
+
+    const { signature } = await window.solana.signAndSendTransaction(tx);
+    console.log(signature);
+}
+
+async function lookupTreasury() {
+    const info = document.getElementById('treasuryInfo');
+    info.innerText = 'Loading...';
+    treasury = new window.zointsTreasury.Treasury(connection, programId);
+    try {
+        vestedId = new solanaWeb3.PublicKey(document.getElementById('treasury').value);
+    } catch (e) {
+        console.log(`unable to decode public key: ${e.message}`);
+        alert(`unable to decode public key: ${e.message}`);
+        return;
+    }
+
+    try {
+        console.log(vestedId.toBase58());
+        const vested = await treasury.getVestedTreasury(vestedId);
+        const assoc = await window.zointsTreasury.Treasury.vestedTreasuryAssociatedAccount(
+                vestedId,
+                vested.mint,
+                programId
+            );
+        const fund = await connection.getTokenAccountBalance(assoc.fund);
+        mint = vested.mint;
+
+        info.innerHTML = `<table>
+<tr>
+    <td><b>Treasury</b></td>
+    <td>${vestedId.toBase58()}</td>
+</tr>
+<tr>
+    <td><b>Mint</b></td>
+    <td><a href="https://explorer.solana.com/address/${vested.mint.toBase58()}?cluster=devnet" target="_blank">${vested.mint.toBase58()}</a></td>
+</tr>
+<tr>
+    <td><b>Authority</b></td>
+    <td><a href="https://explorer.solana.com/address/${vested.authority.toBase58()}?cluster=devnet" target="_blank">${vested.authority.toBase58()}</a></td>
+</tr>
+<tr>
+    <td><b>Initial Amount</b></td>
+    <td>${vested.initialAmount.toString()}</td>
+</tr>
+<tr>
+    <td><b>Withdrawn</b></td>
+    <td>${vested.withdrawn.toString()}</td>
+</tr>
+<tr>
+    <td><b>Start Date</b></td>
+    <td>${vested.start}</td>
+</tr>
+<tr>
+    <td><b>Period</b></td>
+    <td>${vested.vestmentPeriod.toString()} seconds</td>
+</tr>
+<tr>
+    <td><b>Percentage</b></td>
+    <td>${vested.vestmentPercentage / 10_000}</td>
+</tr>
+<tr>
+    <td><b>Fund Address</b></td>
+    <td>${assoc.authority.toBase58()}</td>
+</tr>
+<tr>
+    <td><b>Actual Funds</b></td>
+    <td>${fund.value.amount} ZEE</td>
+</tr>
+<tr>
+    <td><b>Available to Withdraw</b></td>
+    <td>${vested.maximum_available(new Date())}</td>
+</tr>
+<tr>
+    <td></td>
+    <td><button onclick="withdraw()">Withdraw Available</button></td>
+</tr>
+</table>`;
+    } catch (e) {
+        const msg = `Unable to look up treasury: ${e.message}`;
+        console.log(msg);
+        info.innerText = msg;
+    }    
+}
+
+async function connectPhantom() {
+    if (window.solana && window.solana.isPhantom) {
+        window.solana.on("connect", async() => {
+            let cluster = document.getElementById('network').value;
+            document.getElementById('login').innerText = `Connected with ${window.solana.publicKey.toBase58()}`;
+            let url = solanaWeb3.clusterApiUrl(cluster);
+            switch (cluster) {
+                case 'mainnet-beta':
+                    programId = new solanaWeb3.PublicKey('4HrHfcxXjBG8yMpwcjy1oe9HVwG2dwgmErcq2kTuRBNR');
+                    break;
+                case 'devnet':
+                    programId = new solanaWeb3.PublicKey('BSkACfwM6oYFRoDER7d9jwSmrURbvEM4nNMLRGeat92U');
+                    break;
+            }
+
+            console.log(`Connecting to network ${url}`);
+
+            connection = new solanaWeb3.Connection(url);
+        });
+
+
+        await window.solana.connect();
+    } else {
+        document.getElementById('app').innerText = 'Could not detect Phantom extension.';
+    }
+}
+
+</script>
 
 </body>
 </html>
