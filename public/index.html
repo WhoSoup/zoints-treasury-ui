@@ -12,11 +12,31 @@
   <script src="https://unpkg.com/bn.js@5.2.0/lib/bn.js"></script>
   <script src="https://bundle.run/buffer@6.0.3"></script>
   <script src="treasury.umd.js"></script>
+
+<style type="text/css">
+* {
+    font-family: monospace;
+}
+h1,h2 {
+    margin-bottom: 0;
+}
+#lookup {
+    display: none;
+    margin-top: 10px;
+}
+#app {
+    width: 800px;
+    margin: auto;
+}
+.centered {
+    text-align: center;
+}
+</style>
 </head>
 
 <body>
 <div id="app">
-    <div id="login">
+    <div id="login" class="centered">
         <button onclick="connectPhantom()">Connect with Phantom Extension</button>&nbsp;
         Network: <select id="network">
             <option value="mainnet-beta">MainNet</option>
@@ -24,7 +44,7 @@
         </select>
     </div>
     <div id="lookup">
-        <input type="text" id="treasury" size="44" value="7SMpwGCHxt9zjz1WrmKMFBDar5XsDnTdjwgFRMbhyANK" /><button onclick="lookupTreasury()">Load treasury</button>
+        <div class="centered"><input type="text" id="treasury" size="44" value="7SMpwGCHxt9zjz1WrmKMFBDar5XsDnTdjwgFRMbhyANK" /><button onclick="lookupTreasury()">Load treasury</button></div>
         <div id="treasuryInfo"></div>
     </div>
 </div>
@@ -56,6 +76,7 @@ async function withdraw() {
 
     const { signature } = await window.solana.signAndSendTransaction(tx);
     console.log(signature);
+    document.getElementById('treasuryInfo').innerHTML = `Transaction successful: <a href="https://explorer.solana.com/tx/${signature}?cluster=${cluster}" target="_blank">${signature}</a>`
 }
 
 async function lookupTreasury() {
@@ -81,26 +102,35 @@ async function lookupTreasury() {
         const fund = await connection.getTokenAccountBalance(assoc.fund);
         mint = vested.mint;
 
-        info.innerHTML = `<table>
+        info.innerHTML = `
+<h1>Treasury ${vestedId.toBase58()}</h1>
+<table>
 <tr>
-    <td><b>Treasury</b></td>
-    <td>${vestedId.toBase58()}</td>
+    <td colspan="2"><h2>Status</h2></td>
 </tr>
 <tr>
-    <td><b>Mint</b></td>
-    <td><a href="https://explorer.solana.com/address/${vested.mint.toBase58()}?cluster=devnet" target="_blank">${vested.mint.toBase58()}</a></td>
-</tr>
-<tr>
-    <td><b>Authority</b></td>
-    <td><a href="https://explorer.solana.com/address/${vested.authority.toBase58()}?cluster=devnet" target="_blank">${vested.authority.toBase58()}</a></td>
-</tr>
-<tr>
-    <td><b>Initial Amount</b></td>
-    <td>${vested.initialAmount.toString()}</td>
+    <td><b>On-Chain Funds</b></td>
+    <td>${fund.value.amount} ZEE</td>
 </tr>
 <tr>
     <td><b>Withdrawn</b></td>
     <td>${vested.withdrawn.toString()}</td>
+</tr>
+<tr>
+    <td><b>Available to Withdraw</b></td>
+    <td>${vested.available(new Date())}</td>
+</tr>
+${ window.solana.publicKey.equals(vested.authority) ? 
+`<tr>
+    <td></td>
+    <td><button onclick="withdraw()">Withdraw Available</button></td>
+</tr>` : '' }
+<tr>
+    <td colspan="2"><h2>Initialization Parameters</h2></td>
+</tr>
+<tr>
+    <td><b>Initial Amount</b></td>
+    <td>${vested.initialAmount.toString()}</td>
 </tr>
 <tr>
     <td><b>Start Date</b></td>
@@ -115,20 +145,19 @@ async function lookupTreasury() {
     <td>${vested.vestmentPercentage / 10_000}</td>
 </tr>
 <tr>
-    <td><b>Fund Address</b></td>
-    <td>${assoc.authority.toBase58()}</td>
+    <td colspan="2"><h2>Treasury Addresses</h2></td>
 </tr>
 <tr>
-    <td><b>Actual Funds</b></td>
-    <td>${fund.value.amount} ZEE</td>
+    <td><b>Mint</b></td>
+    <td><a href="https://explorer.solana.com/address/${vested.mint.toBase58()}?cluster=${cluster}" target="_blank">${vested.mint.toBase58()}</a></td>
 </tr>
 <tr>
-    <td><b>Available to Withdraw</b></td>
-    <td>${vested.maximum_available(new Date())}</td>
+    <td><b>Withdraw Authority</b></td>
+    <td><a href="https://explorer.solana.com/address/${vested.authority.toBase58()}?cluster=${cluster}" target="_blank">${vested.authority.toBase58()}</a></td>
 </tr>
 <tr>
-    <td></td>
-    <td><button onclick="withdraw()">Withdraw Available</button></td>
+    <td><b>On-Chain Fund Address</b></td>
+    <td><a href="https://explorer.solana.com/address/${assoc.fund.toBase58()}?cluster=${cluster}" target="_blank">${assoc.fund.toBase58()}</a></td>
 </tr>
 </table>`;
     } catch (e) {
@@ -141,8 +170,9 @@ async function lookupTreasury() {
 async function connectPhantom() {
     if (window.solana && window.solana.isPhantom) {
         window.solana.on("connect", async() => {
-            let cluster = document.getElementById('network').value;
+            cluster = document.getElementById('network').value;
             document.getElementById('login').innerText = `Connected with ${window.solana.publicKey.toBase58()}`;
+            document.getElementById('lookup').style.display = 'block';
             let url = solanaWeb3.clusterApiUrl(cluster);
             switch (cluster) {
                 case 'mainnet-beta':

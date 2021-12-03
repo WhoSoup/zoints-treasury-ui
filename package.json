@@ -1,0 +1,32 @@
+{
+  "name": "zoints-treasury-ui",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WhoSoup/zoints-treasury-ui.git"
+  },
+  "keywords": [
+    "zoints"
+  ],
+  "author": "Who Soup",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/WhoSoup/zoints-treasury-ui/issues"
+  },
+  "homepage": "https://github.com/WhoSoup/zoints-treasury-ui#readme",
+  "devDependencies": {
+    "@types/express": "^4.17.13",
+    "express": "^4.17.1",
+    "nodemon": "^2.0.15"
+  },
+  "dependencies": {
+    "@zoints/treasury": "^1.1.1"
+  }
+}
